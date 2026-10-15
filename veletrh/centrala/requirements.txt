@@ -1,0 +1,6 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-dotenv>=1.0
+segno>=1.6
+pytest>=8.0
+httpx>=0.27
