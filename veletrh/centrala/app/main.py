@@ -3,6 +3,10 @@ from fastapi import APIRouter, FastAPI, HTTPException, Query
 from .data import STANDS
 from .models import Stand
 from .qr import router as qr_router
+from .stats import router as stats_router
+from .subscriptions import router as subscriptions_router
+from .survey import router as survey_router
+from .votes import router as votes_router
 
 app = FastAPI(
     title="Veletrh – centrála (server A)",
@@ -38,5 +42,10 @@ def get_stand(stand_id: str) -> Stand:
     raise HTTPException(status_code=404, detail="Stánek neexistuje.")
 
 
+api.include_router(votes_router)
+api.include_router(stats_router)
+api.include_router(subscriptions_router)
+
 app.include_router(api)
+app.include_router(survey_router)
 app.include_router(qr_router)

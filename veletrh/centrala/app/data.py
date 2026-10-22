@@ -20,3 +20,10 @@ STANDS: list[Stand] = [
     Stand(id="S303", title="Docházka přes NFC", authors=["Vojtěch Urban"],
           class_name="C4b", floor=3, room="303"),
 ]
+
+
+def find_stand(stand_id: str) -> Stand | None:
+    for s in STANDS:
+        if s.id == stand_id:
+            return s
+    return None

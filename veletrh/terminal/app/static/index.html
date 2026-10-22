@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Statistika patra</title>
+  <style>
+    :root {
+      --bg: #121a33; --panel: #1b2547; --line: #2c3866; --ink: #f1f3fa; --muted: #98a3c7;
+      --bar: #6f8cff; --lead: #ffc247; --ok: #5fd39b; --err: #ff8f86;
+    }
+    * { box-sizing: border-box; }
+    html { font-size: clamp(16px, 1.45vw, 30px); }
+    body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+           font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif; }
+    main { max-width: 90rem; margin: 0 auto; padding: 1.5rem 1.75rem 2rem; }
+    header { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+             margin-bottom: 1.25rem; }
+    h1 { margin: 0; font-size: 2.1rem; font-weight: 700; letter-spacing: -.01em; }
+    .total { color: var(--muted); font-size: 1.1rem; }
+    .total b { color: var(--ink); font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+    table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 14px; overflow: hidden; }
+    th { text-align: left; font-weight: 500; color: var(--muted); font-size: .85rem; padding: .7rem 1rem;
+         border-bottom: 1px solid var(--line); }
+    td { padding: .7rem 1rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+    tr:last-child td { border-bottom: 0; }
+    .rank { width: 3rem; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 1.2rem; }
+    tr.lead .rank { color: var(--lead); font-weight: 700; }
+    .title { font-size: 1.2rem; font-weight: 600; }
+    .id { display: block; color: var(--muted); font-size: .8rem; font-weight: 400; }
+    .avg { width: 28%; min-width: 9rem; }
+    .avg .num { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .track { height: .5rem; border-radius: .25rem; background: var(--line); margin-top: .3rem; overflow: hidden; }
+    .fill { height: 100%; background: var(--bar); border-radius: .25rem; transition: width .6s ease; }
+    tr.lead .fill { background: var(--lead); }
+    .count { width: 7rem; font-size: 1.2rem; font-variant-numeric: tabular-nums; text-align: right; }
+    th.count { text-align: right; }
+    .empty { text-align: center; color: var(--muted); padding: 2.5rem 1rem; font-size: 1.15rem; }
+    #state { display: flex; align-items: center; gap: .5rem; margin-top: 1rem; color: var(--muted); font-size: .9rem; }
+    #dot { width: .7rem; height: .7rem; border-radius: 50%; background: var(--muted); }
+    #state.ok #dot { background: var(--ok); } #state.err #dot { background: var(--err); }
+    @media (max-width: 40rem) { .avg { width: auto; } .id { display: none; } td, th { padding: .6rem .6rem; } }
+    @media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="heading">Statistika patra</h1>
+    <div class="total">Hlasů celkem <b id="total">0</b></div>
+  </header>
+
+  <table>
+    <thead>
+      <tr><th class="rank">#</th><th>Projekt</th><th class="avg">Průměrné hodnocení</th>
+          <th class="count">Hlasů</th><th class="count">Favoritů</th></tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <div id="state"><span id="dot"></span><span id="state-text">Načítám…</span></div>
+</main>
+
+<script>
+  const rows = document.getElementById("rows");
+
+  function cell(cls, ...children) {
+    const td = document.createElement("td");
+    if (cls) td.className = cls;
+    td.append(...children);
+    return td;
+  }
+
+  function render(data) {
+    document.getElementById("heading").textContent = "Statistika – " + data.floor + ". patro";
+    document.getElementById("total").textContent = data.total_votes;
+    rows.replaceChildren();
+
+    if (data.stands.length === 0) {
+      const tr = document.createElement("tr");
+      const td = cell("empty", "Zatím tu nejsou žádné stánky.");
+      td.colSpan = 5;
+      tr.append(td);
+      rows.append(tr);
+      return;
+    }
+
+    data.stands.forEach((s, i) => {
+      const tr = document.createElement("tr");
+      if (i === 0 && s.votes > 0) tr.className = "lead";
+
+      const name = document.createElement("span"); name.className = "title"; name.textContent = s.title;
+      const id = document.createElement("span"); id.className = "id"; id.textContent = s.stand_id;
+
+      const num = document.createElement("span"); num.className = "num";
+      num.textContent = s.votes ? s.avg_rating.toFixed(2).replace(".", ",") : "–";
+      const track = document.createElement("div"); track.className = "track";
+      const fill = document.createElement("div"); fill.className = "fill";
+      fill.style.width = (s.avg_rating / 5 * 100) + "%";
+      track.append(fill);
+
+      tr.append(
+        cell("rank", String(i + 1)),
+        cell("", name, id),
+        cell("avg", num, track),
+        cell("count", String(s.votes)),
+        cell("count", String(s.favorites)),
+      );
+      rows.append(tr);
+    });
+  }
+
+  function setState(kind, text) {
+    document.getElementById("state").className = kind;
+    document.getElementById("state-text").textContent = text;
+  }
+
+  async function refresh() {
+    try {
+      const [statsRes, statusRes] = await Promise.all([fetch("/stats"), fetch("/status")]);
+      if (!statsRes.ok) throw new Error("HTTP " + statsRes.status);
+      render(await statsRes.json());
+      const status = statusRes.ok ? await statusRes.json() : null;
+      if (status && !status.loaded) setState("err", "Čekám na data z centrály…");
+      else setState("ok", "Aktualizováno " + new Date().toLocaleTimeString("cs-CZ"));
+    } catch (e) {
+      setState("err", "Terminál neodpovídá – zkouším znovu.");
+    }
+  }
+
+  refresh();
+  setInterval(refresh, 2000);
+</script>
+</body>
+</html>
